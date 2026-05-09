@@ -26,10 +26,6 @@ from .sysinfo import RUN_COVERAGE
 from .sysinfo import PYPY
 from .sysinfo import PYPY3
 
-from .sysinfo import PY38
-from .sysinfo import PY39
-from .sysinfo import PY39_EXACTLY
-from .sysinfo import PY310
 from .sysinfo import PY310_EXACTLY
 from .sysinfo import PY311
 from .sysinfo import PY312
@@ -126,6 +122,40 @@ disabled_tests = [
     'test_signal.GenericTests.test_functions_module_attr',
     # XXX: While we debug latest updates. This is leaking
     'test_threading.ThreadTests.test_no_refcycle_through_target',
+
+    # These two might have been impacted by the change in greenlet 3.3.2
+    'test_threading.ThreadTests.test_main_thread_during_shutdown',
+    'test_threading.ThreadTests.test_locals_at_exit',
+    # This test only runs if threading has not been imported already
+    # when the subprocess runs its script. But locally, and on CI,
+    # threading is already imported. It's not clear how, because getting the backtrace just
+    # shows all the internal frozen importlib modules, no actual calling code.
+    # The closest we get is this:
+    #
+    # <frozen site>(626)<module>()
+    # <frozen site>(609)main()
+    # <frozen site>(541)venv()
+    # <frozen site>(394)addsitepackages()
+    # <frozen site>(236)addsitedir()
+    # <frozen site>(195)addpackage()
+    # <string>(1)<module>()
+    #
+    # which makes it appear like it's one of the .pth files?
+    #
+    # The monkey_test.py runner adds some ``gevent.testing``
+    # imports to the top of ``test_threading.py``, and those do
+    # ultimately import threading, but that shouldn't affect the
+    # Python subprocess that runs the script being tested.
+    #
+    # Locally, I had a .pythonrc that was importing threading
+    # (``rich.traceback`` -> ``pygments.lexers`` ->
+    # ``pygments.plugin`` -> ``importlib.metadata`` -> ``zipfile``
+    # -> ``importlib.util`` -> ``threading``).
+    #
+    # That provided the clue we needed. ``importlib._bootstrap``
+    # imports ``importlib.util``, which imports threading. No idea
+    # how this test gets to pass on the CPython test suite.
+    'test_threading.ThreadTests.test_import_from_another_thread',
 
     # The server side takes awhile to shut down
     'test_httplib.HTTPSTest.test_local_bad_hostname',
@@ -1171,7 +1201,7 @@ if OSX:
         'test_ftp.TestTLS_FTPClassMixin.test_retrbinary_rest',
     ]
 
-    if RESOLVER_ARES and PY38 and not RUNNING_ON_CI:
+    if RESOLVER_ARES and not RUNNING_ON_CI:
         disabled_tests += [
             # When updating to 1.16.0 this was seen locally, but not on CI.
             # Tuples differ: ('ff02::1de:c0:face:8d', 1234, 0, 0)
@@ -1179,60 +1209,45 @@ if OSX:
             'test_socket.GeneralModuleTests.test_getaddrinfo_ipv6_scopeid_symbolic',
         ]
 
-if PY39:
 
+
+disabled_tests += [
+    # Depends on exact details of the repr. Eww.
+    'test_subprocess.ProcessTestCase.test_repr',
+    # Tries to wait for the process without using Popen APIs, and expects the
+    # ``returncode`` attribute to stay None. But we have already hooked SIGCHLD, so
+    # we see and set the ``returncode``; there is no way to wait that doesn't do that.
+    'test_subprocess.POSIXProcessTestTest.test_send_signal_race',
+]
+
+
+
+disabled_tests += [
+    # They arbitrarily made some types so that they can't be created;
+    # that's an implementation detail we're not going to follow (
+    # it would require them to be factory functions).
+    'test_select.SelectTestCase.test_disallow_instantiation',
+    'test_threading.ThreadTests.test_disallow_instantiation',
+    # This wants two true threads to work, but a CPU bound loop
+    # in a greenlet can't be interrupted.
+    'test_threading.InterruptMainTests.test_can_interrupt_tight_loops',
+    # We don't currently implement pipesize.
+    'test_subprocess.ProcessTestCase.test_pipesize_default',
+    'test_subprocess.ProcessTestCase.test_pipesizes',
+    # Unknown
+    'test_signal.SiginterruptTest.test_siginterrupt_off',
+]
+
+if TRAVIS:
     disabled_tests += [
-        # Depends on exact details of the repr. Eww.
-        'test_subprocess.ProcessTestCase.test_repr',
-        # Tries to wait for the process without using Popen APIs, and expects the
-        # ``returncode`` attribute to stay None. But we have already hooked SIGCHLD, so
-        # we see and set the ``returncode``; there is no way to wait that doesn't do that.
-        'test_subprocess.POSIXProcessTestTest.test_send_signal_race',
+        # The mixing of subinterpreters (with threads) and gevent apparently
+        # leads to a segfault on Ubuntu/GitHubActions/3.10rc1. Not clear why.
+        # But that's not a great use case for gevent.
+        'test_threading.SubinterpThreadingTests.test_threads_join',
+        'test_threading.SubinterpThreadingTests.test_threads_join_2',
     ]
 
-    if sys.version_info[:3] < (3, 9, 5):
-        disabled_tests += [
-            # These were added for fixes sometime between 3.9.1 and 3.9.5
-            'test_ftplib.TestFTPClass.test_makepasv_issue43285_security_disabled',
-            'test_ftplib.TestFTPClass.test_makepasv_issue43285_security_enabled_default',
-            'test_httplib.BasicTest.test_dir_with_added_behavior_on_status',
-            'test_httplib.TunnelTests.test_tunnel_connect_single_send_connection_setup',
-            'test_ssl.TestSSLDebug.test_msg_callback_deadlock_bpo43577',
-            # This one fails with the updated certs
-            'test_ssl.ContextTests.test_load_verify_cadata',
-            # These time out on 3.9.1 on Appveyor
-            'test_ftplib.TestTLS_FTPClassMixin.test_retrbinary_rest',
-            'test_ftplib.TestTLS_FTPClassMixin.test_retrlines_too_long',
-        ]
-
-
-if PY310:
-    disabled_tests += [
-        # They arbitrarily made some types so that they can't be created;
-        # that's an implementation detail we're not going to follow (
-        # it would require them to be factory functions).
-        'test_select.SelectTestCase.test_disallow_instantiation',
-        'test_threading.ThreadTests.test_disallow_instantiation',
-        # This wants two true threads to work, but a CPU bound loop
-        # in a greenlet can't be interrupted.
-        'test_threading.InterruptMainTests.test_can_interrupt_tight_loops',
-        # We don't currently implement pipesize.
-        'test_subprocess.ProcessTestCase.test_pipesize_default',
-        'test_subprocess.ProcessTestCase.test_pipesizes',
-        # Unknown
-        'test_signal.SiginterruptTest.test_siginterrupt_off',
-    ]
-
-    if TRAVIS:
-        disabled_tests += [
-            # The mixing of subinterpreters (with threads) and gevent apparently
-            # leads to a segfault on Ubuntu/GitHubActions/3.10rc1. Not clear why.
-            # But that's not a great use case for gevent.
-            'test_threading.SubinterpThreadingTests.test_threads_join',
-            'test_threading.SubinterpThreadingTests.test_threads_join_2',
-        ]
-
-if (PY310_EXACTLY or PY39_EXACTLY) and APPVEYOR:
+if PY310_EXACTLY and APPVEYOR:
     disabled_tests += [
         # On 3.9.13, this has been seen to cause
         #
@@ -1253,36 +1268,6 @@ if PY311:
         # 3.11 added subprocess._USE_VFORK and subprocess._USE_POSIX_SPAWN.
         # We don't support either of those (although USE_VFORK might be possible?)
         'test_subprocess.ProcessTestCase.test__use_vfork',
-        # This test only runs if threading has not been imported already
-        # when the subprocess runs its script. But locally, and on CI,
-        # threading is already imported. It's not clear how, because getting the backtrace just
-        # shows all the internal frozen importlib modules, no actual calling code.
-        # The closest we get is this:
-        #
-        # <frozen site>(626)<module>()
-        # <frozen site>(609)main()
-        # <frozen site>(541)venv()
-        # <frozen site>(394)addsitepackages()
-        # <frozen site>(236)addsitedir()
-        # <frozen site>(195)addpackage()
-        # <string>(1)<module>()
-        #
-        # which makes it appear like it's one of the .pth files?
-        #
-        # The monkey_test.py runner adds some ``gevent.testing``
-        # imports to the top of ``test_threading.py``, and those do
-        # ultimately import threading, but that shouldn't affect the
-        # Python subprocess that runs the script being tested.
-        #
-        # Locally, I had a .pythonrc that was importing threading
-        # (``rich.traceback`` -> ``pygments.lexers`` ->
-        # ``pygments.plugin`` -> ``importlib.metadata`` -> ``zipfile``
-        # -> ``importlib.util`` -> ``threading``).
-        #
-        # That provided the clue we needed. ``importlib._bootstrap``
-        # imports ``importlib.util``, which imports threading. No idea
-        # how this test gets to pass on the CPython test suite.
-        'test_threading.ThreadTests.test_import_from_another_thread',
     ]
 
     if sys.version_info[:3] < (3, 11, 8):
@@ -1506,7 +1491,6 @@ def disable_tests_in_source(source, filename):
 
     if filename.endswith('.py'):
         filename = filename[:-3]
-
 
     # XXX ignoring TestCase class name (just using function name).
     # Maybe we should do this with the AST, or even after the test is

@@ -440,12 +440,12 @@ class SSLSocket(socket):
             except SSLWantReadError:
                 if self.timeout == 0.0:
                     raise
-                self._wait(self._read_event, timeout_exc=_SSLErrorReadTimeout)
+                self._wait(self._read_event, timeout_exc=_SSLErrorReadTimeout())
             except SSLWantWriteError:
                 if self.timeout == 0.0:
                     raise
                 # note: using _SSLErrorReadTimeout rather than _SSLErrorWriteTimeout below is intentional
-                self._wait(self._write_event, timeout_exc=_SSLErrorReadTimeout)
+                self._wait(self._write_event, timeout_exc=_SSLErrorReadTimeout())
             except SSLZeroReturnError:
                 # This one is only seen in PyPy 7.3.17
                 if self.suppress_ragged_eofs:
@@ -482,11 +482,11 @@ class SSLSocket(socket):
                 if ex.args[0] == SSL_ERROR_WANT_READ:
                     if self.timeout == 0.0:
                         raise
-                    self._wait(self._read_event, timeout_exc=_SSLErrorWriteTimeout)
+                    self._wait(self._read_event, timeout_exc=_SSLErrorWriteTimeout())
                 elif ex.args[0] == SSL_ERROR_WANT_WRITE:
                     if self.timeout == 0.0:
                         raise
-                    self._wait(self._write_event, timeout_exc=_SSLErrorWriteTimeout)
+                    self._wait(self._write_event, timeout_exc=_SSLErrorWriteTimeout())
                 else:
                     raise
 
@@ -742,11 +742,11 @@ class SSLSocket(socket):
             except SSLWantReadError:
                 if self.timeout == 0.0:
                     raise
-                self._wait(self._read_event, timeout_exc=_SSLErrorHandshakeTimeout)
+                self._wait(self._read_event, timeout_exc=_SSLErrorHandshakeTimeout())
             except SSLWantWriteError:
                 if self.timeout == 0.0:
                     raise
-                self._wait(self._write_event, timeout_exc=_SSLErrorHandshakeTimeout)
+                self._wait(self._write_event, timeout_exc=_SSLErrorHandshakeTimeout())
 
     # 3.7+, making it difficult to create these objects.
     # There's a new type, _ssl.SSLSocket, that takes the
@@ -855,9 +855,12 @@ SSLContext.sslsocket_class = SSLSocket
 
 # Python 3.2 onwards raise normal timeout errors, not SSLError.
 # See https://bugs.python.org/issue10272
-_SSLErrorReadTimeout = _socket_timeout('The read operation timed out')
-_SSLErrorWriteTimeout = _socket_timeout('The write operation timed out')
-_SSLErrorHandshakeTimeout = _socket_timeout('The handshake operation timed out')
+def _SSLErrorReadTimeout():
+    return _socket_timeout('The read operation timed out')
+def _SSLErrorWriteTimeout():
+    return _socket_timeout('The write operation timed out')
+def _SSLErrorHandshakeTimeout():
+    return _socket_timeout('The handshake operation timed out')
 
 
 def wrap_socket(sock, keyfile=None, certfile=None,

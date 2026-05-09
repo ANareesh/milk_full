@@ -31,6 +31,7 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     milk_collections = relationship("MilkCollection", back_populates="farmer")
+    # Relationships to Document and Feedback kept as foreign keys only to avoid initialization issues
     documents = relationship("Document", back_populates="user")
     feedbacks = relationship("Feedback", back_populates="user")
 

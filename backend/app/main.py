@@ -9,6 +9,7 @@ from app.api.v1.endpoints import (
     auth, products, orders, deliveries, payments,
     customers, agents, subscriptions, reviews, admin,locations
 )
+from app.models import all_models  # Import all models to register them with Base
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 

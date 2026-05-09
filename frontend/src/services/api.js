@@ -49,7 +49,6 @@ export const authAPI = {
   resetPassword: (data) => api.post('/auth/reset-password', data),
 };
 
-import axios from "axios";
 
 export const collectMilk = async (data, token) => {
   return axios.post(

@@ -1,7 +1,3 @@
-from __future__ import absolute_import
-from __future__ import print_function
-from __future__ import division
-
 import weakref
 
 import gevent
@@ -9,7 +5,6 @@ from gevent.event import Event, AsyncResult
 
 import gevent.testing as greentest
 
-from gevent.testing.six import xrange
 from gevent.testing.timing import AbstractGenericGetTestCase
 from gevent.testing.timing import AbstractGenericWaitTestCase
 from gevent.testing.timing import SMALL_TICK
@@ -364,8 +359,8 @@ class TestWait(greentest.TestCase):
 
     @greentest.skipOnAppVeyor("Not all results have arrived sometimes due to timer issues")
     def test(self):
-        events = [Event() for _ in xrange(self.N)]
-        asyncs = [AsyncResult() for _ in xrange(self.N)]
+        events = [Event() for _ in range(self.N)]
+        asyncs = [AsyncResult() for _ in range(self.N)]
         max_len = len(events) + len(asyncs)
         sender = gevent.spawn(self._sender, events, asyncs)
         results = gevent.wait(events + asyncs, count=self.count, timeout=self.timeout)

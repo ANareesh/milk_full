@@ -8,6 +8,12 @@ from app.models.order import Order, OrderStatus, OrderType
 from app.models.delivery import Delivery, DeliveryStatus
 from app.models.payment import Payment, PaymentMethod, PaymentStatus
 from app.models.review import Review
+from app.models.batch import Batch
+from app.models.milk_collection import MilkCollection
+from app.models.password_reset import PasswordReset
+from app.models.agent_location import AgentLocation
+from app.models.document import Document
+from app.models.feedback import Feedback
 
 __all__ = [
     "User",
@@ -29,4 +35,10 @@ __all__ = [
     "PaymentMethod",
     "PaymentStatus",
     "Review",
+    "Batch",
+    "MilkCollection",
+    "PasswordReset",
+    "AgentLocation",
+    "Document",
+    "Feedback",
 ]

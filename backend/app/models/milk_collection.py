@@ -3,6 +3,7 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.core.database import Base
 
+
 class MilkCollection(Base):
     __tablename__ = "milk_collections"
     id = Column(Integer, primary_key=True, index=True)
@@ -14,4 +15,5 @@ class MilkCollection(Base):
     notes = Column(String(255), nullable=True)
     batch_id = Column(Integer, ForeignKey("batches.id"), nullable=True)
     farmer = relationship("User", back_populates="milk_collections")
-    batch = relationship("Batch")
+    # Relationship to Batch table - kept as foreign key only to avoid initialization issues
+    # batch = relationship("Batch", foreign_keys=[batch_id])
